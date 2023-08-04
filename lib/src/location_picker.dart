@@ -210,9 +210,12 @@ class FlutterLocationPicker extends StatefulWidget {
   ///
   final double? contributorBadgeForOSMPositionBottom;
 
+  final String? initAddress;
+
   const FlutterLocationPicker({
     Key? key,
     required this.onPicked,
+    this.initAddress,
     this.onError,
     this.initPosition,
     this.stepZoom = 1,
@@ -267,8 +270,7 @@ class FlutterLocationPicker extends StatefulWidget {
   State<FlutterLocationPicker> createState() => _FlutterLocationPickerState();
 }
 
-class _FlutterLocationPickerState extends State<FlutterLocationPicker>
-    with TickerProviderStateMixin {
+class _FlutterLocationPickerState extends State<FlutterLocationPicker> with TickerProviderStateMixin {
   /// Creating a new instance of the MapController class.
   MapController _mapController = MapController();
 
@@ -281,6 +283,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   Timer? _debounce;
   bool isLoading = true;
   late void Function(Exception e) onError;
+  String? initAddress;
 
   /// It returns true if the text is RTL, false if it's LTR
   ///
@@ -318,8 +321,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     }
 
     if (permission == LocationPermission.deniedForever) {
-      const error =
-          PermissionDeniedException("Location Permission is denied forever");
+      const error = PermissionDeniedException("Location Permission is denied forever");
       onError(error);
       // Permissions are denied forever, handle appropriately.
       return Future.error(error);
@@ -349,25 +351,19 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   void _animatedMapMove(LatLng destLocation, double destZoom) {
     // Create some tweens. These serve to split up the transition from one location to another.
     // In our case, we want to split the transition be<tween> our current map center and the destination.
-    final latTween = Tween<double>(
-        begin: _mapController.center.latitude, end: destLocation.latitude);
-    final lngTween = Tween<double>(
-        begin: _mapController.center.longitude, end: destLocation.longitude);
+    final latTween = Tween<double>(begin: _mapController.center.latitude, end: destLocation.latitude);
+    final lngTween = Tween<double>(begin: _mapController.center.longitude, end: destLocation.longitude);
     final zoomTween = Tween<double>(begin: _mapController.zoom, end: destZoom);
     // Create a animation controller that has a duration and a TickerProvider.
     if (mounted) {
-      _animationController = AnimationController(
-          vsync: this, duration: widget.mapAnimationDuration);
+      _animationController = AnimationController(vsync: this, duration: widget.mapAnimationDuration);
     }
     // The animation determines what path the animation will take. You can try different Curves values, although I found
     // fastOutSlowIn to be my favorite.
-    final Animation<double> animation = CurvedAnimation(
-        parent: _animationController, curve: Curves.fastOutSlowIn);
+    final Animation<double> animation = CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn);
 
     _animationController.addListener(() {
-      _mapController.move(
-          LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-          zoomTween.evaluate(animation));
+      _mapController.move(LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)), zoomTween.evaluate(animation));
     });
 
     if (mounted) {
@@ -386,15 +382,12 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     setState(() {
       isLoading = true;
     });
-    String url =
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1&accept-language=${widget.mapLanguage}';
+    String url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1&accept-language=${widget.mapLanguage}';
 
     try {
       var response = await client.post(Uri.parse(url));
-      var decodedResponse =
-          jsonDecode(utf8.decode(response.bodyBytes)) as Map<dynamic, dynamic>;
-      _searchController.text =
-          decodedResponse['display_name'] ?? "Search Location";
+      var decodedResponse = jsonDecode(utf8.decode(response.bodyBytes)) as Map<dynamic, dynamic>;
+      _searchController.text = decodedResponse['display_name'] ?? "Search Location";
       setState(() {
         isLoading = false;
       });
@@ -413,15 +406,12 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   /// Returns:
   ///   A Future object that will eventually contain a PickedData object.
   Future<PickedData> pickData() async {
-    LatLong center = LatLong(
-        _mapController.center.latitude, _mapController.center.longitude);
+    LatLong center = LatLong(_mapController.center.latitude, _mapController.center.longitude);
     var client = http.Client();
-    String url =
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=${_mapController.center.latitude}&lon=${_mapController.center.longitude}&zoom=18&addressdetails=1&accept-language=${widget.mapLanguage}';
+    String url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=${_mapController.center.latitude}&lon=${_mapController.center.longitude}&zoom=18&addressdetails=1&accept-language=${widget.mapLanguage}';
 
     var response = await client.post(Uri.parse(url));
-    var decodedResponse =
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<dynamic, dynamic>;
+    var decodedResponse = jsonDecode(utf8.decode(response.bodyBytes)) as Map<dynamic, dynamic>;
     String displayName = decodedResponse['display_name'];
     return PickedData(center, displayName, decodedResponse['address']);
   }
@@ -436,8 +426,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   @override
   void initState() {
     _mapController = MapController();
-    _animationController =
-        AnimationController(duration: widget.mapAnimationDuration, vsync: this);
+    _animationController = AnimationController(duration: widget.mapAnimationDuration, vsync: this);
     onError = widget.onError ?? (e) => debugPrint(e.toString());
 
     /// Checking if the trackMyPosition is true or false. If it is true, it will get the current
@@ -446,26 +435,47 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     /// [initPosition].longitude.
     if (widget.trackMyPosition) {
       _determinePosition().then((currentPosition) {
-        initPosition =
-            LatLng(currentPosition.latitude, currentPosition.longitude);
+        initPosition = LatLng(currentPosition.latitude, currentPosition.longitude);
 
         setNameCurrentPos(currentPosition.latitude, currentPosition.longitude);
-        _animatedMapMove(
-            LatLng(currentPosition.latitude, currentPosition.longitude), 18.0);
+        _animatedMapMove(LatLng(currentPosition.latitude, currentPosition.longitude), 18.0);
       }, onError: (e) => onError(e)).whenComplete(() => setState(() {
             isLoading = false;
           }));
     } else if (widget.initPosition != null) {
-      initPosition =
-          LatLng(widget.initPosition!.latitude, widget.initPosition!.longitude);
+      initPosition = LatLng(widget.initPosition!.latitude, widget.initPosition!.longitude);
       setState(() {
         isLoading = false;
       });
-      setNameCurrentPos(
-          widget.initPosition!.latitude, widget.initPosition!.longitude);
+      setNameCurrentPos(widget.initPosition!.latitude, widget.initPosition!.longitude);
     } else {
       setState(() {
         isLoading = false;
+      });
+    }
+    if (initAddress != null) {
+      _searchController.text = initAddress!;
+      if (_debounce?.isActive ?? false) {
+        _debounce?.cancel();
+      }
+      setState(() {});
+      _debounce = Timer(const Duration(milliseconds: 20), () async {
+        var client = http.Client();
+        try {
+          String url = 'https://nominatim.openstreetmap.org/search?q=${_searchController.text}&format=json&polygon_geojson=1&addressdetails=1&accept-language=${widget.mapLanguage}';
+          var response = await client.post(Uri.parse(url));
+          var decodedResponse = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+          _options = decodedResponse.map((e) => OSMdata(displayname: e['display_name'], latitude: double.parse(e['lat']), longitude: double.parse(e['lon']))).toList();
+          setState(() {});
+          if (_options.isNotEmpty) {
+            _animatedMapMove(LatLng(_options.first.latitude, _options.first.longitude), 18.0);
+            setNameCurrentPos(_options.first.latitude, _options.first.longitude);
+          }
+        } on Exception catch (e) {
+          onError(e);
+        } finally {
+          client.close();
+        }
       });
     }
 
@@ -502,11 +512,8 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
               style: TextStyle(color: widget.searchBarTextColor),
             ),
             onTap: () {
-              _animatedMapMove(
-                  LatLng(_options[index].latitude, _options[index].longitude),
-                  18.0);
-              setNameCurrentPos(
-                  _options[index].latitude, _options[index].longitude);
+              _animatedMapMove(LatLng(_options[index].latitude, _options[index].longitude), 18.0);
+              setNameCurrentPos(_options[index].latitude, _options[index].longitude);
 
               _focusNode.unfocus();
               _options.clear();
@@ -531,28 +538,21 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
       child: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: widget.searchBarBackgroundColor ??
-              Theme.of(context).colorScheme.background,
-          borderRadius:
-              widget.searchbarBorderRadius ?? BorderRadius.circular(5),
+          color: widget.searchBarBackgroundColor ?? Theme.of(context).colorScheme.background,
+          borderRadius: widget.searchbarBorderRadius ?? BorderRadius.circular(5),
         ),
         child: Column(
           children: [
             TextFormField(
-                textDirection: isRTL(_searchController.text)
-                    ? TextDirection.rtl
-                    : TextDirection.ltr,
+                textDirection: isRTL(_searchController.text) ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: widget.searchBarTextColor),
                 controller: _searchController,
                 focusNode: _focusNode,
                 decoration: InputDecoration(
                   hintText: widget.searchBarHintText,
-                  hintTextDirection: isRTL(widget.searchBarHintText)
-                      ? TextDirection.rtl
-                      : TextDirection.ltr,
+                  hintTextDirection: isRTL(widget.searchBarHintText) ? TextDirection.rtl : TextDirection.ltr,
                   border: widget.searchbarInputBorder ?? inputBorder,
-                  focusedBorder:
-                      widget.searchbarInputFocusBorderp ?? inputFocusBorder,
+                  focusedBorder: widget.searchbarInputFocusBorderp ?? inputFocusBorder,
                   hintStyle: TextStyle(color: widget.searchBarHintColor),
                   suffixIcon: IconButton(
                     onPressed: () => _searchController.clear(),
@@ -570,18 +570,10 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                   _debounce = Timer(const Duration(milliseconds: 20), () async {
                     var client = http.Client();
                     try {
-                      String url =
-                          'https://nominatim.openstreetmap.org/search?q=$value&format=json&polygon_geojson=1&addressdetails=1&accept-language=${widget.mapLanguage}';
+                      String url = 'https://nominatim.openstreetmap.org/search?q=$value&format=json&polygon_geojson=1&addressdetails=1&accept-language=${widget.mapLanguage}';
                       var response = await client.post(Uri.parse(url));
-                      var decodedResponse =
-                          jsonDecode(utf8.decode(response.bodyBytes))
-                              as List<dynamic>;
-                      _options = decodedResponse
-                          .map((e) => OSMdata(
-                              displayname: e['display_name'],
-                              latitude: double.parse(e['lat']),
-                              longitude: double.parse(e['lon'])))
-                          .toList();
+                      var decodedResponse = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+                      _options = decodedResponse.map((e) => OSMdata(displayname: e['display_name'], latitude: double.parse(e['lat']), longitude: double.parse(e['lon']))).toList();
                       setState(() {});
                     } on Exception catch (e) {
                       onError(e);
@@ -611,8 +603,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
               shape: const CircleBorder(),
               backgroundColor: widget.zoomButtonsBackgroundColor,
               onPressed: () {
-                _animatedMapMove(_mapController.center,
-                    _mapController.zoom + widget.stepZoom);
+                _animatedMapMove(_mapController.center, _mapController.zoom + widget.stepZoom);
               },
               child: Icon(
                 Icons.zoom_in,
@@ -626,8 +617,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
               shape: const CircleBorder(),
               backgroundColor: widget.zoomButtonsBackgroundColor,
               onPressed: () {
-                _animatedMapMove(_mapController.center,
-                    _mapController.zoom - widget.stepZoom);
+                _animatedMapMove(_mapController.center, _mapController.zoom - widget.stepZoom);
               },
               child: Icon(
                 Icons.zoom_out,
@@ -644,16 +634,11 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                   isLoading = true;
                 });
                 _determinePosition().then((currentPosition) {
-                  _animatedMapMove(
-                      LatLng(
-                          currentPosition.latitude, currentPosition.longitude),
-                      18);
-                  setNameCurrentPos(
-                      currentPosition.latitude, currentPosition.longitude);
+                  _animatedMapMove(LatLng(currentPosition.latitude, currentPosition.longitude), 18);
+                  setNameCurrentPos(currentPosition.latitude, currentPosition.longitude);
                 });
               },
-              child:
-                  Icon(Icons.my_location, color: widget.locationButtonsColor),
+              child: Icon(Icons.my_location, color: widget.locationButtonsColor),
             ),
         ],
       ),
@@ -663,18 +648,13 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   Widget _buildMap() {
     return Positioned.fill(
         child: FlutterMap(
-      options: MapOptions(
-          center: initPosition,
-          zoom: initPosition != null ? widget.initZoom : widget.minZoomLevel,
-          maxZoom: widget.maxZoomLevel,
-          minZoom: widget.minZoomLevel),
+      options: MapOptions(center: initPosition, zoom: initPosition != null ? widget.initZoom : widget.minZoomLevel, maxZoom: widget.maxZoomLevel, minZoom: widget.minZoomLevel),
       mapController: _mapController,
       children: [
         TileLayer(
           urlTemplate: widget.urlTemplate,
           subdomains: const ['a', 'b', 'c'],
-          backgroundColor:
-              widget.mapLoadingBackgroundColor ?? const Color(0xFFE0E0E0),
+          backgroundColor: widget.mapLoadingBackgroundColor ?? const Color(0xFFE0E0E0),
         ),
         if (widget.showCurrentLocationPointer) _buildCurrentLocation(),
       ],
